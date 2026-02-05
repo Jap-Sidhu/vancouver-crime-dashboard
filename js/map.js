@@ -51,8 +51,8 @@ function updateMap() {
     sampledData.forEach(incident => {
         const coords = utmToLatLng(incident.x, incident.y);
         
-        // Validate coordinates are within reasonable bounds for Vancouver
-        if (coords[0] < 49.0 || coords[0] > 49.4 || coords[1] < -123.3 || coords[1] > -122.9) {
+        // Validate coordinates are within Vancouver bounds
+        if (!isValidVancouverCoords(coords[0], coords[1])) {
             return; // Skip invalid coordinates
         }
 
@@ -92,8 +92,7 @@ function updateMap() {
     if (sampledData.length > 0) {
         const validCoords = sampledData
             .map(d => utmToLatLng(d.x, d.y))
-            .filter(coords => coords[0] >= 49.0 && coords[0] <= 49.4 && 
-                            coords[1] >= -123.3 && coords[1] <= -122.9);
+            .filter(coords => isValidVancouverCoords(coords[0], coords[1]));
         
         if (validCoords.length > 0) {
             const bounds = L.latLngBounds(validCoords);
@@ -102,35 +101,25 @@ function updateMap() {
     }
 }
 
-// Enhanced UTM to Lat/Lng conversion for Vancouver (UTM Zone 10)
+// Accurate UTM to Lat/Lng conversion using proj4js
 function utmToLatLng(x, y) {
-    // Vancouver uses UTM Zone 10N
-    // This is a simplified conversion for visualization purposes
-    // For production, consider using proj4js library
+    // Define UTM Zone 10N projection (Vancouver uses this zone)
+    const utm = '+proj=utm +zone=10 +ellps=WGS84 +datum=WGS84 +units=m +no_defs';
     
-    // Constants for UTM Zone 10
-    const zone = 10;
-    const falseEasting = 500000;
-    const falseNorthing = 0; // Northern hemisphere
+    // Define WGS84 (standard lat/lng)
+    const wgs84 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs';
     
-    // Approximate conversion (good enough for visualization)
-    // Central meridian for Zone 10: -123°
-    const centralMeridian = -123;
-    
-    // Convert UTM to approximate lat/lng
-    const lng = centralMeridian + (x - falseEasting) / 111320;
-    const lat = y / 110540;
+    // Convert UTM to Lat/Lng
+    // proj4 expects [easting, northing] and returns [lng, lat]
+    const [lng, lat] = proj4(utm, wgs84, [x, y]);
     
     return [lat, lng];
 }
 
-// Alternative: More accurate conversion using proj4js
-// If you want higher accuracy, include proj4js library and use:
-/*
-function utmToLatLngAccurate(x, y) {
-    const utm = '+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs';
-    const wgs84 = '+proj=longlat +datum=WGS84 +no_defs';
-    const [lng, lat] = proj4(utm, wgs84, [x, y]);
-    return [lat, lng];
+// Validate if coordinates are within Vancouver area
+function isValidVancouverCoords(lat, lng) {
+    // Vancouver bounds:
+    // Latitude: approximately 49.2 to 49.35
+    // Longitude: approximately -123.25 to -123.0
+    return lat >= 49.15 && lat <= 49.35 && lng >= -123.3 && lng <= -122.95;
 }
-*/

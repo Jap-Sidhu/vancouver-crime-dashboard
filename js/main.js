@@ -240,16 +240,3 @@ function getCrimeColor(crimeType) {
         return '#ffaa00'; // Orange for other crimes
     }
 }
-
-// Utility function to convert UTM to Lat/Lng
-function utmToLatLng(x, y) {
-    // This is a simplified conversion for UTM Zone 10
-    // For production, use a proper library like proj4js
-    // Vancouver is approximately at UTM Zone 10
-    
-    // Rough conversion (not precise, but works for visualization)
-    const lng = (x - 500000) / 111320 - 123;
-    const lat = y / 110540 + 49;
-    
-    return [lat, lng];
-}
