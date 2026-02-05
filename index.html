@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vancouver Crime Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- D3.js for data visualization -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- Leaflet for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1>Vancouver Crime Dashboard</h1>
+            <p class="subtitle">Data from Vancouver Police Department Open Data</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel: Filters and Stats -->
+            <div class="left-panel">
+                <!-- Filters Section -->
+                <div class="filter-section">
+                    <h3>Filters</h3>
+                    
+                    <!-- Year Filter -->
+                    <div class="filter-group">
+                        <label>Year:</label>
+                        <select id="year-filter" class="filter-select">
+                            <option value="all">All Years</option>
+                        </select>
+                    </div>
+
+                    <!-- Crime Type Filter -->
+                    <div class="filter-group">
+                        <label>Crime Type:</label>
+                        <div class="checkbox-group" id="crime-type-filter">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
+
+                    <!-- Neighbourhood Filter -->
+                    <div class="filter-group">
+                        <label>Neighbourhood:</label>
+                        <select id="neighbourhood-filter" class="filter-select">
+                            <option value="all">All Neighbourhoods</option>
+                        </select>
+                    </div>
+
+                    <!-- Month Range -->
+                    <div class="filter-group">
+                        <label>Month Range:</label>
+                        <div class="month-range">
+                            <select id="month-start" class="filter-select-small">
+                                <option value="1">Jan</option>
+                                <option value="2">Feb</option>
+                                <option value="3">Mar</option>
+                                <option value="4">Apr</option>
+                                <option value="5">May</option>
+                                <option value="6">Jun</option>
+                                <option value="7">Jul</option>
+                                <option value="8">Aug</option>
+                                <option value="9">Sep</option>
+                                <option value="10">Oct</option>
+                                <option value="11">Nov</option>
+                                <option value="12">Dec</option>
+                            </select>
+                            <span>to</span>
+                            <select id="month-end" class="filter-select-small">
+                                <option value="1">Jan</option>
+                                <option value="2">Feb</option>
+                                <option value="3">Mar</option>
+                                <option value="4">Apr</option>
+                                <option value="5">May</option>
+                                <option value="6">Jun</option>
+                                <option value="7">Jul</option>
+                                <option value="8">Aug</option>
+                                <option value="9">Sep</option>
+                                <option value="10">Oct</option>
+                                <option value="11">Nov</option>
+                                <option value="12" selected>Dec</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button id="reset-filters" class="reset-btn">Reset All Filters</button>
+                </div>
+
+                <!-- Key Statistics -->
+                <div class="stats-section">
+                    <h3>Key Statistics</h3>
+                    <div class="stat-cards">
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-incidents">0</div>
+                            <div class="stat-label">Total Incidents</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="most-common-crime">-</div>
+                            <div class="stat-label">Most Common Crime</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="peak-hour">-</div>
+                            <div class="stat-label">Peak Hour</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="hotspot-neighbourhood">-</div>
+                            <div class="stat-label">Top Neighbourhood</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Crime Type Distribution Chart -->
+                <div class="chart-section">
+                    <h3>Crime Type Distribution</h3>
+                    <div id="crime-type-chart" class="chart"></div>
+                </div>
+
+                <!-- Top Neighbourhoods Chart -->
+                <div class="chart-section">
+                    <h3>Top 10 Neighbourhoods</h3>
+                    <div id="neighbourhood-chart" class="chart"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Map and Time Analysis -->
+            <div class="right-panel">
+                <!-- Map -->
+                <div class="map-section">
+                    <h3>Crime Incident Map</h3>
+                    <div id="crime-map"></div>
+                    <div class="map-legend">
+                        <span class="legend-item">
+                            <span class="legend-dot" style="background: #ff4444;"></span>
+                            Against Person
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-dot" style="background: #44aaff;"></span>
+                            Property Crime
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-dot" style="background: #ffaa00;"></span>
+                            Other
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Time Pattern Charts -->
+                <div class="time-section">
+                    <h3>Incidents Over Time</h3>
+                    <div id="time-series-chart" class="chart"></div>
+                </div>
+
+                <div class="time-section">
+                    <h3>Hourly Distribution</h3>
+                    <div id="hourly-chart" class="chart"></div>
+                </div>
+
+                <div class="time-section">
+                    <h3>Day of Week Pattern</h3>
+                    <div id="weekday-chart" class="chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading crime data...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/charts.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
