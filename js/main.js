@@ -18,6 +18,17 @@ const CRIME_CATEGORIES = {
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     setupEventListeners();
+
+    // Redraw charts and map on resize (responsive layout/orientation change)
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            if (crimeData.length > 0) {
+                updateDashboard();
+            }
+        }, 200);
+    });
 });
 
 // Load CSV data

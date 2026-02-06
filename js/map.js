@@ -14,6 +14,15 @@ function initializeMap() {
         maxZoom: 19
     }).addTo(map);
 
+    // Redraw map on resize (fixes layout/orientation change on mobile and tablet)
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 150);
+    });
+
     return map;
 }
 

@@ -334,34 +334,278 @@ h3 {
     background: #4a9eff;
 }
 
+/* Author Section */
+.author-section {
+    margin-top: 24px;
+    padding: 16px 0;
+    text-align: right;
+}
+
+.author-info {
+    display: inline-block;
+    padding: 14px 20px;
+    background: #1a1f3a;
+    border-radius: 8px;
+    border: 1px solid #3d4463;
+}
+
+.author-name {
+    display: block;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 8px;
+}
+
+.author-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px 10px;
+}
+
+.author-link {
+    font-size: 0.9em;
+    color: #4a9eff;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.author-link:hover {
+    color: #6eb3ff;
+}
+
+.author-sep {
+    color: #3d4463;
+    font-size: 0.85em;
+    user-select: none;
+}
+
 /* Responsive Design */
+/* Prevent grid overflow on all viewports */
+.main-content {
+    min-width: 0;
+}
+
+.left-panel,
+.right-panel {
+    min-width: 0;
+}
+
+.filter-section,
+.stats-section,
+.chart-section,
+.map-section,
+.time-section {
+    min-width: 0;
+}
+
+.chart {
+    overflow: hidden;
+}
+
+/* Large desktop */
 @media (max-width: 1400px) {
     .main-content {
-        grid-template-columns: 350px 1fr;
+        grid-template-columns: minmax(280px, 350px) 1fr;
     }
 }
 
+/* iPad landscape / small laptop */
 @media (max-width: 1024px) {
+    .dashboard-container {
+        padding: 16px;
+    }
+
     .main-content {
         grid-template-columns: 1fr;
+        gap: 16px;
     }
-    
+
+    .dashboard-header {
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 2em;
+    }
+
     .stat-cards {
         grid-template-columns: repeat(2, 1fr);
     }
+
+    #crime-map {
+        height: 450px;
+    }
+
+    .map-legend {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+    }
 }
 
+/* iPad portrait / large phone */
 @media (max-width: 768px) {
-    .dashboard-header h1 {
-        font-size: 1.8em;
+    .dashboard-container {
+        padding: 12px;
     }
-    
+
+    .dashboard-header {
+        padding: 14px;
+        margin-bottom: 16px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.6em;
+    }
+
+    .subtitle {
+        font-size: 0.9em;
+    }
+
+    .filter-section,
+    .stats-section,
+    .chart-section,
+    .map-section,
+    .time-section {
+        padding: 16px;
+    }
+
+    h3 {
+        font-size: 1.1em;
+        margin-bottom: 12px;
+    }
+
     .stat-cards {
         grid-template-columns: 1fr;
+        gap: 12px;
     }
-    
+
+    .stat-card {
+        padding: 16px;
+    }
+
+    .stat-value {
+        font-size: 1.6em;
+    }
+
+    .stat-label {
+        font-size: 0.8em;
+    }
+
+    .checkbox-group {
+        max-height: 220px;
+    }
+
     #crime-map {
-        height: 400px;
+        height: 350px;
+    }
+
+    .map-legend {
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chart {
+        min-height: 260px;
+        padding: 12px;
+    }
+
+    #time-series-chart {
+        min-height: 220px;
+    }
+
+    #hourly-chart,
+    #weekday-chart {
+        min-height: 180px;
+    }
+
+    .month-range {
+        flex-wrap: wrap;
+    }
+
+    .author-section {
+        text-align: center;
+        margin-top: 20px;
+        padding: 12px 0;
+    }
+
+    .author-info {
+        width: 100%;
+        max-width: 320px;
+        text-align: center;
+    }
+
+    .author-links {
+        justify-content: center;
+    }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+    .dashboard-container {
+        padding: 10px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.4em;
+    }
+
+    .subtitle {
+        font-size: 0.85em;
+    }
+
+    .filter-section,
+    .stats-section,
+    .chart-section,
+    .map-section,
+    .time-section {
+        padding: 12px;
+        border-radius: 10px;
+    }
+
+    .filter-select,
+    .filter-select-small {
+        padding: 10px;
+        font-size: 16px; /* Prevents iOS zoom on focus */
+    }
+
+    .reset-btn {
+        padding: 14px;
+        font-size: 1em;
+    }
+
+    #crime-map {
+        height: 300px;
+    }
+
+    .chart {
+        min-height: 220px;
+    }
+
+    #time-series-chart {
+        min-height: 200px;
+    }
+
+    #hourly-chart,
+    #weekday-chart {
+        min-height: 160px;
+    }
+
+    .author-info {
+        padding: 12px 16px;
+    }
+
+    .author-name {
+        font-size: 0.9em;
+    }
+
+    .author-link {
+        font-size: 0.85em;
     }
 }
 
