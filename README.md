@@ -49,7 +49,7 @@ Crime data from the Vancouver Police Department Open Data Portal covering Januar
 
 ## License
 
-Educational and personal use. Data provided by VPD Open Data Portal.
+MIT
 
 ---
 
