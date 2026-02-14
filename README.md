@@ -53,4 +53,3 @@ MIT
 
 ---
 
-**Built with ❤️ for Vancouver crime data analysis**
