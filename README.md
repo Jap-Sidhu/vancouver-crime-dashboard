@@ -11,21 +11,6 @@ An interactive web dashboard for visualizing crime data from the Vancouver Polic
 
 
 
-## Project Structure
-
-```
-vancouver-crime-dashboard/
-├── index.html          # Main page
-├── css/
-│   └── styles.css      # Styling
-├── js/
-│   ├── main.js         # Core logic
-│   ├── charts.js       # Visualizations
-│   └── map.js          # Map functionality
-└── data/
-    └── Crimedata_csv_all_years.csv  # Your CSV file goes here
-```
-
 ## Technologies
 
 - HTML5, CSS3, JavaScript
