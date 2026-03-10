@@ -1,197 +1,203 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vancouver Crime Dashboard</title>
-    <link rel="stylesheet" href="css/styles.css">
-    <!-- D3.js for data visualization -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <!-- Leaflet for maps -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Proj4js for accurate coordinate conversion -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Vancouver Crime Record</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:wght@300;400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <!-- Dashboard styles -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- D3, Leaflet, Proj4 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 </head>
 <body>
-    <div class="dashboard-container">
-        <!-- Header -->
-        <header class="dashboard-header">
-            <h1>Vancouver Crime Dashboard</h1>
-            <p class="subtitle">Data from Vancouver Police Department Open Data</p>
-        </header>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Left Panel: Filters and Stats -->
-            <div class="left-panel">
-                <!-- Filters Section -->
-                <div class="filter-section">
-                    <h3>Filters</h3>
-                    
-                    <!-- Year Filter -->
-                    <div class="filter-group">
-                        <label>Year:</label>
-                        <select id="year-filter" class="filter-select">
-                            <option value="all">All Years</option>
-                        </select>
-                    </div>
+  <!-- ── LOADING ── -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Loading crime data…</p>
+  </div>
 
-                    <!-- Crime Type Filter -->
-                    <div class="filter-group">
-                        <label>Crime Type:</label>
-                        <div class="checkbox-group" id="crime-type-filter">
-                            <!-- Dynamically populated -->
-                        </div>
-                    </div>
+  <!-- ── TOOLTIP ── -->
+  <div class="tooltip" id="tooltip"></div>
 
-                    <!-- Neighbourhood Filter -->
-                    <div class="filter-group">
-                        <label>Neighbourhood:</label>
-                        <select id="neighbourhood-filter" class="filter-select">
-                            <option value="all">All Neighbourhoods</option>
-                        </select>
-                    </div>
+  <div class="page">
 
-                    <!-- Month Range -->
-                    <div class="filter-group">
-                        <label>Month Range:</label>
-                        <div class="month-range">
-                            <select id="month-start" class="filter-select-small">
-                                <option value="1">Jan</option>
-                                <option value="2">Feb</option>
-                                <option value="3">Mar</option>
-                                <option value="4">Apr</option>
-                                <option value="5">May</option>
-                                <option value="6">Jun</option>
-                                <option value="7">Jul</option>
-                                <option value="8">Aug</option>
-                                <option value="9">Sep</option>
-                                <option value="10">Oct</option>
-                                <option value="11">Nov</option>
-                                <option value="12">Dec</option>
-                            </select>
-                            <span>to</span>
-                            <select id="month-end" class="filter-select-small">
-                                <option value="1">Jan</option>
-                                <option value="2">Feb</option>
-                                <option value="3">Mar</option>
-                                <option value="4">Apr</option>
-                                <option value="5">May</option>
-                                <option value="6">Jun</option>
-                                <option value="7">Jul</option>
-                                <option value="8">Aug</option>
-                                <option value="9">Sep</option>
-                                <option value="10">Oct</option>
-                                <option value="11">Nov</option>
-                                <option value="12" selected>Dec</option>
-                            </select>
-                        </div>
-                    </div>
+    <!-- ══════════════════════════════════════
+         MASTHEAD
+    ══════════════════════════════════════ -->
+    <header class="masthead">
+      <div class="mast-meta">
+        <span>Vancouver, British Columbia</span>
+        <span>VPD Open Data · <b>2003–2024</b></span>
+        <span>Records loaded: <b id="meta-count">—</b></span>
+      </div>
+      <div class="mast-title">The Vancouver <em>Crime</em> Record</div>
+      <div class="mast-sub">An interactive analysis of public safety data — Vancouver Police Department</div>
+    </header>
 
-                    <button id="reset-filters" class="reset-btn">Reset All Filters</button>
-                </div>
+    <!-- ══════════════════════════════════════
+         FILTER STRIP
+    ══════════════════════════════════════ -->
+    <div class="filter-strip">
+      <div class="fs-label">Filter —</div>
 
-                <!-- Key Statistics -->
-                <div class="stats-section">
-                    <h3>Key Statistics</h3>
-                    <div class="stat-cards">
-                        <div class="stat-card">
-                            <div class="stat-value" id="total-incidents">0</div>
-                            <div class="stat-label">Total Incidents</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="most-common-crime">-</div>
-                            <div class="stat-label">Most Common Crime</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="peak-hour">-</div>
-                            <div class="stat-label">Peak Hour</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="hotspot-neighbourhood">-</div>
-                            <div class="stat-label">Top Neighbourhood</div>
-                        </div>
-                    </div>
-                </div>
+      <div class="fs-group">
+        <label for="year-filter">Year</label>
+        <select id="year-filter">
+          <option value="all">All Years</option>
+        </select>
+      </div>
 
-                <!-- Crime Type Distribution Chart -->
-                <div class="chart-section">
-                    <h3>Crime Type Distribution</h3>
-                    <div id="crime-type-chart" class="chart"></div>
-                </div>
+      <div class="fs-sep"></div>
 
-                <!-- Top Neighbourhoods Chart -->
-                <div class="chart-section">
-                    <h3>Top 10 Neighbourhoods</h3>
-                    <div id="neighbourhood-chart" class="chart"></div>
-                </div>
-            </div>
+      <div class="fs-group">
+        <label for="neighbourhood-filter">Neighbourhood</label>
+        <select id="neighbourhood-filter">
+          <option value="all">All Areas</option>
+        </select>
+      </div>
 
-            <!-- Right Panel: Map and Time Analysis -->
-            <div class="right-panel">
-                <!-- Map -->
-                <div class="map-section">
-                    <h3>Crime Incident Map</h3>
-                    <div id="crime-map"></div>
-                    <div class="map-legend">
-                        <span class="legend-item">
-                            <span class="legend-dot" style="background: #ff4444;"></span>
-                            Against Person
-                        </span>
-                        <span class="legend-item">
-                            <span class="legend-dot" style="background: #44aaff;"></span>
-                            Property Crime
-                        </span>
-                        <span class="legend-item">
-                            <span class="legend-dot" style="background: #ffaa00;"></span>
-                            Other
-                        </span>
-                    </div>
-                </div>
+      <div class="fs-sep"></div>
 
-                <!-- Time Pattern Charts -->
-                <div class="time-section">
-                    <h3>Incidents Over Time</h3>
-                    <div id="time-series-chart" class="chart"></div>
-                </div>
+      <div class="fs-group">
+        <label for="month-start">From</label>
+        <select id="month-start">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
 
-                <div class="time-section">
-                    <h3>Hourly Distribution</h3>
-                    <div id="hourly-chart" class="chart"></div>
-                </div>
+      <div class="fs-group">
+        <label for="month-end">To</label>
+        <select id="month-end">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12" selected>December</option>
+        </select>
+      </div>
 
-                <div class="time-section">
-                    <h3>Day of Week Pattern</h3>
-                    <div id="weekday-chart" class="chart"></div>
-                </div>
-            </div>
+      <button id="reset-filters">Reset All</button>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         STATS BAND
+    ══════════════════════════════════════ -->
+    <div class="stats-band">
+      <div class="stat-cell">
+        <div class="stat-eyebrow">Total Incidents</div>
+        <div class="stat-num" id="total-incidents">—</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-eyebrow">Most Common Crime</div>
+        <div class="stat-num sm" id="most-common-crime">—</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-eyebrow">Peak Hour</div>
+        <div class="stat-num" id="peak-hour">—</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-eyebrow">Top Neighbourhood</div>
+        <div class="stat-num sm" id="hotspot-neighbourhood">—</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         BODY GRID — 3 newspaper columns
+    ══════════════════════════════════════ -->
+    <div class="body-grid">
+
+      <!-- COL 1 — Crime type filter + Distribution chart -->
+      <div class="col col-left">
+
+        <div class="sec-head"><h2>Crime Type Filter</h2></div>
+        <div id="crime-type-filter" class="crime-type-list"></div>
+
+        <div class="sec-head"><h2>Distribution by Type</h2></div>
+        <div id="crime-type-chart" class="chart-container"></div>
+
+      </div><!-- /col-left -->
+
+      <!-- COL 2 — Map + time charts -->
+      <div class="col col-mid">
+
+        <div class="sec-head"><h2>Incident Map — Vancouver Metropolitan Area</h2></div>
+        <div id="crime-map"></div>
+        <div class="map-legend">
+          <div class="ml-item"><div class="ml-dot" style="background:#c0392b"></div>Against Person</div>
+          <div class="ml-item"><div class="ml-dot" style="background:#c07a2b"></div>Property Crime</div>
+          <div class="ml-item"><div class="ml-dot" style="background:#5a5047"></div>Other</div>
         </div>
 
-        <!-- Author -->
-        <footer class="author-section">
-            <div class="author-info">
-                <h2 class="author-name">Japdeep Sidhu</h2>
-                <div class="author-links">
-                    <a href="https://www.linkedin.com/in/japdeep-sidhu-07708023a/" class="author-link" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">LinkedIn</a>
-                    <span class="author-sep">·</span>
-                    <a href="https://github.com/Jap-Sidhu" class="author-link" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
-                    <span class="author-sep">·</span>
-                    <a href="mailto:jss77@sfu.ca" class="author-link" aria-label="Email">jss77@sfu.ca</a>
-                </div>
-            </div>
-        </footer>
-    </div>
+        <div class="two-charts">
+          <div>
+            <div class="sec-head"><h2>Incidents Over Time</h2></div>
+            <div id="time-series-chart" class="chart-container"></div>
+          </div>
+          <div>
+            <div class="sec-head"><h2>Hourly Distribution</h2></div>
+            <div id="hourly-chart" class="chart-container"></div>
+          </div>
+        </div>
 
-    <!-- Loading Indicator -->
-    <div id="loading" class="loading">
-        <div class="spinner"></div>
-        <p>Loading crime data...</p>
-    </div>
+        <div class="sec-head"><h2>Day of Week Pattern</h2></div>
+        <div id="weekday-chart" class="chart-container"></div>
 
-    <!-- Scripts -->
-    <script src="js/charts.js"></script>
-    <script src="js/map.js"></script>
-    <script src="js/main.js"></script>
+      </div><!-- /col-mid -->
+
+      <!-- COL 3 — Top neighbourhoods -->
+      <div class="col col-right">
+        <div class="sec-head"><h2>Top 10 Neighbourhoods</h2></div>
+        <div id="neighbourhood-chart" class="nbr-list"></div>
+      </div>
+
+    </div><!-- /body-grid -->
+
+    <!-- ══════════════════════════════════════
+         FOOTER
+    ══════════════════════════════════════ -->
+    <footer>
+      <div class="footer-name">Japdeep Sidhu</div>
+      <div class="footer-links">
+        <a href="https://www.linkedin.com/in/japdeep-sidhu-07708023a/" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="https://github.com/Jap-Sidhu" target="_blank" rel="noopener">GitHub</a>
+        <a href="mailto:jss77@sfu.ca">jss77@sfu.ca</a>
+      </div>
+    </footer>
+
+  </div><!-- /page -->
+
+  <!-- Scripts — order matters -->
+  <script src="js/main.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/charts.js"></script>
 </body>
 </html>

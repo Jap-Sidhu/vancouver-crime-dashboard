@@ -1,253 +1,263 @@
-// Main application logic for Vancouver Crime Dashboard
+// ================================================================
+//  Vancouver Crime Dashboard — main.js
+//  Core data loading, filtering, statistics
+// ================================================================
 
-// Global variables
-let crimeData = [];
+// Global state
+let crimeData    = [];
 let filteredData = [];
 let map;
 
-// Crime type categories
+// Crime type category mappings (from original)
 const CRIME_CATEGORIES = {
-    person: ['Offence Against a Person', 'Homicide'],
-    property: ['Theft from Vehicle', 'Theft of Vehicle', 'Theft of Bicycle', 'Other Theft', 
-               'BNE Commercial', 'BNE Residential/Other'],
-    other: ['Mischief', 'Vehicle Collision or Pedestrian Struck (with Fatality)', 
-            'Vehicle Collision or Pedestrian Struck (with Injury)']
+  person:   ['Offence Against a Person', 'Homicide', 'Sexual Offence'],
+  property: [
+    'Theft from Vehicle', 'Theft of Vehicle', 'Theft of Bicycle', 'Other Theft',
+    'BNE Commercial', 'BNE Residential/Other',
+    'Break and Enter Commercial', 'Break and Enter Residential/Other',
+    'Mischief'
+  ],
+  other: [
+    'Vehicle Collision or Pedestrian Struck (with Fatality)',
+    'Vehicle Collision or Pedestrian Struck (with Injury)'
+  ]
 };
 
-// Initialize the dashboard
-document.addEventListener('DOMContentLoaded', () => {
-    loadData();
-    setupEventListeners();
+// Map category → editorial colour palette
+const CRIME_COLORS = {
+  person:   '#c0392b',   // crimson
+  property: '#c07a2b',   // amber
+  other:    '#5a5047'    // dark warm grey
+};
 
-    // Redraw charts and map on resize (responsive layout/orientation change)
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            if (crimeData.length > 0) {
-                updateDashboard();
-            }
-        }, 200);
-    });
+// ── Bootstrap ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+  setupEventListeners();
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (crimeData.length > 0) updateDashboard();
+      if (map) map.invalidateSize();
+    }, 200);
+  });
 });
 
-// Load CSV data
+// ── Load CSV data ──────────────────────────────────────────────
 async function loadData() {
-    try {
-        const data = await d3.csv('data/Crimedata_csv_all_years.csv');
-        
-        // Process and clean the data
-        crimeData = data.map(d => ({
-            type: d.TYPE,
-            year: +d.YEAR,
-            month: +d.MONTH,
-            day: +d.DAY,
-            hour: d.HOUR !== '' ? +d.HOUR : null,
-            minute: d.MINUTE !== '' ? +d.MINUTE : null,
-            hundredBlock: d.HUNDRED_BLOCK,
-            neighbourhood: d.NEIGHBOURHOOD,
-            x: d.X !== '' ? +d.X : null,
-            y: d.Y !== '' ? +d.Y : null,
-            // Calculate day of week
-            dayOfWeek: new Date(+d.YEAR, +d.MONTH - 1, +d.DAY).getDay()
-        })).filter(d => d.type && d.year); // Remove invalid entries
+  try {
+    const data = await d3.csv('data/Crimedata_csv_all_years.csv');
 
-        console.log(`Loaded ${crimeData.length} crime incidents`);
-        
-        // Initialize filters
-        populateFilters();
-        
-        // Set initial filtered data to all data
-        filteredData = [...crimeData];
-        
-        // Update dashboard
-        updateDashboard();
-        
-        // Hide loading indicator
-        document.getElementById('loading').classList.add('hidden');
-        
-    } catch (error) {
-        console.error('Error loading data:', error);
-        document.getElementById('loading').innerHTML = 
-            '<p style="color: #ff4444;">Error loading data. Please ensure Crimedata_csv_all_years.csv is in the data/ folder.</p>';
-    }
-}
+    crimeData = data.map(d => ({
+      type:          d.TYPE          || d.type          || '',
+      year:          +(d.YEAR        || d.year          || 0),
+      month:         +(d.MONTH       || d.month         || 0),
+      day:           +(d.DAY         || d.day           || 0),
+      hour:          (d.HOUR  !== '' && d.HOUR  != null) ? +(d.HOUR  || d.hour)  : null,
+      minute:        (d.MINUTE!== '' && d.MINUTE!= null) ? +(d.MINUTE|| d.minute): null,
+      hundredBlock:  d.HUNDRED_BLOCK || d.hundred_block || '',
+      neighbourhood: d.NEIGHBOURHOOD || d.neighbourhood || '',
+      x:             (d.X !== '' && d.X != null) ? +(d.X || d.x) : null,
+      y:             (d.Y !== '' && d.Y != null) ? +(d.Y || d.y) : null,
+      dayOfWeek:     new Date(+(d.YEAR||d.year), +(d.MONTH||d.month)-1, +(d.DAY||d.day)).getDay()
+    })).filter(d => d.type && d.year > 2000);
 
-// Populate filter dropdowns
-function populateFilters() {
-    // Populate years
-    const years = [...new Set(crimeData.map(d => d.year))].sort((a, b) => b - a);
-    const yearFilter = document.getElementById('year-filter');
-    years.forEach(year => {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
-        yearFilter.appendChild(option);
-    });
+    console.log(`Loaded ${crimeData.length} crime incidents`);
 
-    // Populate crime types
-    const crimeTypes = [...new Set(crimeData.map(d => d.type))].sort();
-    const crimeTypeFilter = document.getElementById('crime-type-filter');
-    crimeTypes.forEach(type => {
-        const label = document.createElement('label');
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.value = type;
-        checkbox.checked = true;
-        label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(type));
-        crimeTypeFilter.appendChild(label);
-    });
+    // Update masthead record count
+    document.getElementById('meta-count').textContent = crimeData.length.toLocaleString();
 
-    // Populate neighbourhoods
-    const neighbourhoods = [...new Set(crimeData.map(d => d.neighbourhood))]
-        .filter(n => n && n !== '')
-        .sort();
-    const neighbourhoodFilter = document.getElementById('neighbourhood-filter');
-    neighbourhoods.forEach(neighbourhood => {
-        const option = document.createElement('option');
-        option.value = neighbourhood;
-        option.textContent = neighbourhood;
-        neighbourhoodFilter.appendChild(option);
-    });
-}
+    populateFilters();
 
-// Setup event listeners
-function setupEventListeners() {
-    // Year filter
-    document.getElementById('year-filter').addEventListener('change', applyFilters);
-    
-    // Neighbourhood filter
-    document.getElementById('neighbourhood-filter').addEventListener('change', applyFilters);
-    
-    // Month range filters
-    document.getElementById('month-start').addEventListener('change', applyFilters);
-    document.getElementById('month-end').addEventListener('change', applyFilters);
-    
-    // Crime type checkboxes
-    document.getElementById('crime-type-filter').addEventListener('change', applyFilters);
-    
-    // Reset button
-    document.getElementById('reset-filters').addEventListener('click', resetFilters);
-}
-
-// Apply filters
-function applyFilters() {
-    const yearFilter = document.getElementById('year-filter').value;
-    const neighbourhoodFilter = document.getElementById('neighbourhood-filter').value;
-    const monthStart = +document.getElementById('month-start').value;
-    const monthEnd = +document.getElementById('month-end').value;
-    
-    // Get selected crime types
-    const selectedCrimeTypes = Array.from(
-        document.querySelectorAll('#crime-type-filter input:checked')
-    ).map(cb => cb.value);
-
-    // Filter data
-    filteredData = crimeData.filter(d => {
-        // Year filter
-        if (yearFilter !== 'all' && d.year !== +yearFilter) return false;
-        
-        // Neighbourhood filter
-        if (neighbourhoodFilter !== 'all' && d.neighbourhood !== neighbourhoodFilter) return false;
-        
-        // Month range filter
-        if (monthStart <= monthEnd) {
-            if (d.month < monthStart || d.month > monthEnd) return false;
-        } else {
-            // Handle wrap-around (e.g., Oct to Feb)
-            if (d.month < monthStart && d.month > monthEnd) return false;
-        }
-        
-        // Crime type filter
-        if (!selectedCrimeTypes.includes(d.type)) return false;
-        
-        return true;
-    });
-
-    console.log(`Filtered to ${filteredData.length} incidents`);
+    filteredData = [...crimeData];
     updateDashboard();
+
+    // Hide loading overlay
+    const loading = document.getElementById('loading');
+    loading.classList.add('hidden');
+    setTimeout(() => { loading.style.display = 'none'; }, 500);
+
+  } catch (error) {
+    console.error('Error loading data:', error);
+    const loading = document.getElementById('loading');
+    loading.querySelector('p').textContent =
+      'Error loading data. Ensure Crimedata_csv_all_years.csv is in the data/ folder.';
+    loading.querySelector('p').style.color = 'var(--red)';
+    loading.querySelector('.spinner').style.display = 'none';
+  }
 }
 
-// Reset all filters
+// ── Populate filter dropdowns ──────────────────────────────────
+function populateFilters() {
+  // Years (newest first)
+  const years = [...new Set(crimeData.map(d => d.year))].sort((a, b) => b - a);
+  const yearSel = document.getElementById('year-filter');
+  years.forEach(y => {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    yearSel.appendChild(o);
+  });
+
+  // Neighbourhoods
+  const hoods = [...new Set(crimeData.map(d => d.neighbourhood))]
+    .filter(n => n && n.trim() !== '')
+    .sort();
+  const hoodSel = document.getElementById('neighbourhood-filter');
+  hoods.forEach(n => {
+    const o = document.createElement('option');
+    o.value = n; o.textContent = n;
+    hoodSel.appendChild(o);
+  });
+
+  // Crime type checkboxes — styled to match editorial design
+  const types = [...new Set(crimeData.map(d => d.type))].filter(Boolean).sort();
+  const container = document.getElementById('crime-type-filter');
+  types.forEach(type => {
+    const lbl = document.createElement('label');
+    lbl.className = 'ct-item';
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = type;
+    cb.checked = true;
+
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(' ' + type));
+    container.appendChild(lbl);
+  });
+}
+
+// ── Event listeners ────────────────────────────────────────────
+function setupEventListeners() {
+  document.getElementById('year-filter').addEventListener('change', applyFilters);
+  document.getElementById('neighbourhood-filter').addEventListener('change', applyFilters);
+  document.getElementById('month-start').addEventListener('change', applyFilters);
+  document.getElementById('month-end').addEventListener('change', applyFilters);
+  document.getElementById('crime-type-filter').addEventListener('change', applyFilters);
+  document.getElementById('reset-filters').addEventListener('click', resetFilters);
+}
+
+// ── Apply filters ──────────────────────────────────────────────
+function applyFilters() {
+  const yearVal  = document.getElementById('year-filter').value;
+  const hoodVal  = document.getElementById('neighbourhood-filter').value;
+  const mFrom    = +document.getElementById('month-start').value;
+  const mTo      = +document.getElementById('month-end').value;
+
+  const selectedTypes = new Set(
+    Array.from(document.querySelectorAll('#crime-type-filter input:checked'))
+      .map(cb => cb.value)
+  );
+
+  filteredData = crimeData.filter(d => {
+    if (yearVal !== 'all' && d.year !== +yearVal)       return false;
+    if (hoodVal !== 'all' && d.neighbourhood !== hoodVal) return false;
+    if (mFrom <= mTo) {
+      if (d.month < mFrom || d.month > mTo)             return false;
+    } else {
+      // wrap-around range (e.g. Oct → Feb)
+      if (d.month < mFrom && d.month > mTo)             return false;
+    }
+    if (!selectedTypes.has(d.type))                     return false;
+    return true;
+  });
+
+  console.log(`Filtered to ${filteredData.length} incidents`);
+  updateDashboard();
+}
+
+// ── Reset filters ──────────────────────────────────────────────
 function resetFilters() {
-    document.getElementById('year-filter').value = 'all';
-    document.getElementById('neighbourhood-filter').value = 'all';
-    document.getElementById('month-start').value = '1';
-    document.getElementById('month-end').value = '12';
-    
-    // Check all crime type checkboxes
-    document.querySelectorAll('#crime-type-filter input').forEach(cb => {
-        cb.checked = true;
-    });
-    
-    applyFilters();
+  document.getElementById('year-filter').value          = 'all';
+  document.getElementById('neighbourhood-filter').value = 'all';
+  document.getElementById('month-start').value          = '1';
+  document.getElementById('month-end').value            = '12';
+  document.querySelectorAll('#crime-type-filter input').forEach(cb => { cb.checked = true; });
+  applyFilters();
 }
 
-// Update entire dashboard
+// ── Update entire dashboard ────────────────────────────────────
 function updateDashboard() {
-    updateStatistics();
-    updateCharts();
-    updateMap();
+  updateStatistics();
+  updateCharts();
+  updateMap();
 }
 
-// Update key statistics
+// ── Update key statistics ──────────────────────────────────────
 function updateStatistics() {
-    // Total incidents
-    document.getElementById('total-incidents').textContent = 
-        filteredData.length.toLocaleString();
+  // Total
+  document.getElementById('total-incidents').textContent =
+    filteredData.length.toLocaleString();
 
-    // Most common crime type
-    const crimeTypeCounts = d3.rollup(
-        filteredData,
-        v => v.length,
-        d => d.type
-    );
-    const mostCommon = Array.from(crimeTypeCounts.entries())
-        .sort((a, b) => b[1] - a[1])[0];
-    document.getElementById('most-common-crime').textContent = 
-        mostCommon ? mostCommon[0].substring(0, 20) + (mostCommon[0].length > 20 ? '...' : '') : '-';
+  // Most common crime
+  const typeCounts = d3.rollup(filteredData, v => v.length, d => d.type);
+  const topType = [...typeCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const crimeEl = document.getElementById('most-common-crime');
+  if (topType) {
+    let lbl = topType[0]
+      .replace('Break and Enter ', 'B&E ')
+      .replace('Vehicle Collision or Pedestrian Struck (with Fatality)', 'Collision (Fatal)')
+      .replace('Vehicle Collision or Pedestrian Struck (with Injury)', 'Collision (Injury)');
+    if (lbl.length > 20) lbl = lbl.slice(0, 18) + '…';
+    crimeEl.textContent = lbl;
+  } else {
+    crimeEl.textContent = '—';
+  }
 
-    // Peak hour
-    const hourData = filteredData.filter(d => d.hour !== null);
-    if (hourData.length > 0) {
-        const hourCounts = d3.rollup(
-            hourData,
-            v => v.length,
-            d => d.hour
-        );
-        const peakHour = Array.from(hourCounts.entries())
-            .sort((a, b) => b[1] - a[1])[0];
-        document.getElementById('peak-hour').textContent = 
-            peakHour ? `${peakHour[0]}:00` : '-';
-    } else {
-        document.getElementById('peak-hour').textContent = 'N/A';
+  // Peak hour
+  const hourData = filteredData.filter(d => d.hour !== null);
+  if (hourData.length > 0) {
+    const hourCounts = d3.rollup(hourData, v => v.length, d => d.hour);
+    const peakHour = [...hourCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+    document.getElementById('peak-hour').textContent =
+      peakHour ? `${String(peakHour[0]).padStart(2, '0')}:00` : '—';
+  } else {
+    document.getElementById('peak-hour').textContent = 'N/A';
+  }
+
+  // Top neighbourhood
+  const nbrData = filteredData.filter(d => d.neighbourhood && d.neighbourhood.trim() !== '');
+  if (nbrData.length > 0) {
+    const nbrCounts = d3.rollup(nbrData, v => v.length, d => d.neighbourhood);
+    const topNbr = [...nbrCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+    const nbrEl = document.getElementById('hotspot-neighbourhood');
+    if (topNbr) {
+      let lbl = topNbr[0];
+      if (lbl.length > 18) lbl = lbl.slice(0, 16) + '…';
+      nbrEl.textContent = lbl;
     }
-
-    // Top neighbourhood
-    const neighbourhoodData = filteredData.filter(d => d.neighbourhood && d.neighbourhood !== '');
-    if (neighbourhoodData.length > 0) {
-        const neighbourhoodCounts = d3.rollup(
-            neighbourhoodData,
-            v => v.length,
-            d => d.neighbourhood
-        );
-        const topNeighbourhood = Array.from(neighbourhoodCounts.entries())
-            .sort((a, b) => b[1] - a[1])[0];
-        document.getElementById('hotspot-neighbourhood').textContent = 
-            topNeighbourhood ? topNeighbourhood[0].substring(0, 15) + (topNeighbourhood[0].length > 15 ? '...' : '') : '-';
-    } else {
-        document.getElementById('hotspot-neighbourhood').textContent = 'N/A';
-    }
+  } else {
+    document.getElementById('hotspot-neighbourhood').textContent = 'N/A';
+  }
 }
 
-// Get color for crime category
+// ── Crime colour helper (used by charts + map) ─────────────────
 function getCrimeColor(crimeType) {
-    if (CRIME_CATEGORIES.person.includes(crimeType)) {
-        return '#ff4444'; // Red for crimes against persons
-    } else if (CRIME_CATEGORIES.property.includes(crimeType)) {
-        return '#44aaff'; // Blue for property crimes
-    } else {
-        return '#ffaa00'; // Orange for other crimes
-    }
+  if (CRIME_CATEGORIES.person.includes(crimeType))   return CRIME_COLORS.person;
+  if (CRIME_CATEGORIES.property.includes(crimeType)) return CRIME_COLORS.property;
+  return CRIME_COLORS.other;
+}
+
+// ── Tooltip helpers ────────────────────────────────────────────
+const tooltipEl = document.getElementById('tooltip');
+
+function showTooltip(event, html) {
+  tooltipEl.innerHTML = html;
+  tooltipEl.classList.add('visible');
+  moveTooltip(event);
+}
+
+function moveTooltip(event) {
+  let x = event.clientX + 14;
+  let y = event.clientY - 10;
+  if (x + 250 > window.innerWidth)  x = event.clientX - 260;
+  if (y + 100 > window.innerHeight) y = event.clientY - 100;
+  tooltipEl.style.left = x + 'px';
+  tooltipEl.style.top  = y + 'px';
+}
+
+function hideTooltip() {
+  tooltipEl.classList.remove('visible');
 }
