@@ -1,23 +1,23 @@
 // ================================================================
 //  Vancouver Crime Dashboard — map.js
-//  Leaflet map with UTM projection, crime markers, popups
+//  Leaflet heat map of incident density
 // ================================================================
+
+const VANCOUVER_CENTER = [49.2600, -123.1150];
+let heatLayer = null;
 
 // ── Initialise map ─────────────────────────────────────────────
 function initializeMap() {
-  const vancouverCenter = [49.2827, -123.1207];
-
   map = L.map('crime-map', {
     zoomControl: true,
     attributionControl: true
-  }).setView(vancouverCenter, 11);
+  }).setView(VANCOUVER_CENTER, 12);
 
-  // Light CartoDB tiles — CSS sepia filter applied in styles.css
-  // to match the editorial paper aesthetic
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19
+  // Esri light-gray basemap (no API key needed). The CSS sepia filter in styles.css
+  // tints it to match the editorial paper look.
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+    maxZoom: 16
   }).addTo(map);
 
   // Redraw on resize (mobile orientation fix)
@@ -33,90 +33,72 @@ function initializeMap() {
   return map;
 }
 
-// ── Update map with filtered data ─────────────────────────────
+// Grid step (0..meta.grid inside meta.bbox) → latitude / longitude
+function cellToLatLng(key) {
+  const { bbox, grid } = meta;
+  const half = (1 << HEAT_SHIFT) / 2;   // centre of the heat cell
+  const latStep = ((key >> 12) << HEAT_SHIFT) + half;
+  const lngStep = ((key & 4095) << HEAT_SHIFT) + half;
+  return [
+    bbox.south + (latStep / grid) * (bbox.north - bbox.south),
+    bbox.west  + (lngStep / grid) * (bbox.east - bbox.west)
+  ];
+}
+
+// ── Update map with the current counts ─────────────────────────
 function updateMap() {
-  if (!map) {
-    map = initializeMap();
-  }
+  if (!map) map = initializeMap();
 
-  // Remove existing circle markers (keep tile layer)
-  map.eachLayer(layer => {
-    if (layer instanceof L.CircleMarker) {
-      map.removeLayer(layer);
-    }
+  // Counts span 1 to several thousand per cell, so intensity uses a log scale; otherwise
+  // a few downtown blocks would wash out every other neighbourhood.
+  let maxCount = 1;
+  agg.heat.forEach(c => { if (c > maxCount) maxCount = c; });
+  const logMax = Math.log1p(maxCount);
+  const points = [];
+  agg.heat.forEach((count, key) => {
+    const [lat, lng] = cellToLatLng(key);
+    points.push([lat, lng, Math.log1p(count) / logMax]);
   });
 
-  // Only use records with coordinates
-  const mapData = filteredData.filter(d => d.x !== null && d.y !== null && d.x !== 0 && d.y !== 0);
-
-  // Sample for performance — max 5000 points
-  const MAX_POINTS = 5000;
-  const sampledData = mapData.length > MAX_POINTS
-    ? mapData.filter(() => Math.random() < MAX_POINTS / mapData.length)
-    : mapData;
-
-  console.log(`Displaying ${sampledData.length} points on map`);
-
-  const validCoords = [];
-
-  sampledData.forEach(incident => {
-    const coords = utmToLatLng(incident.x, incident.y);
-
-    if (!isValidVancouverCoords(coords[0], coords[1])) return;
-
-    validCoords.push(coords);
-
-    const color = getCrimeColor(incident.type);
-
-    const marker = L.circleMarker(coords, {
-      radius:      4,
-      fillColor:   color,
-      color:       color,
-      weight:      0.5,
-      opacity:     0.7,
-      fillOpacity: 0.55
-    });
-
-    // Popup content
-    const dateStr = `${incident.year}-${String(incident.month).padStart(2, '0')}-${String(incident.day).padStart(2, '0')}`;
-    const timeStr = incident.hour !== null
-      ? `${String(incident.hour).padStart(2, '0')}:${String(incident.minute || 0).padStart(2, '0')}`
-      : '';
-
-    marker.bindPopup(`
-      <strong>${incident.type}</strong>
-      ${incident.neighbourhood || 'Unknown neighbourhood'}<br>
-      ${incident.hundredBlock  ? incident.hundredBlock + '<br>' : ''}
-      ${dateStr}${timeStr ? ' · ' + timeStr : ''}
-    `, { maxWidth: 220 });
-
-    marker.addTo(map);
-  });
-
-  // Fit bounds to visible data
-  if (validCoords.length > 0) {
-    try {
-      const bounds = L.latLngBounds(validCoords);
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-    } catch (_) {
-      map.setView([49.2827, -123.1207], 11);
+  // `max` above 1 leaves headroom for overlapping cells before the colour saturates
+  const options = {
+    radius: 9,
+    blur: 12,
+    max: 2,
+    maxZoom: 15,
+    minOpacity: 0.1,
+    gradient: { 0.2: '#e5c9a0', 0.45: '#d9963f', 0.7: '#c0392b', 1.0: '#5c1610' }
+  };
+  if (heatLayer) {
+    heatLayer.setLatLngs(points);
+  } else if (map.getSize().x > 0) {
+    heatLayer = L.heatLayer(points, options).addTo(map);
+  } else {
+    // The heat layer can't draw into a zero-size map (e.g. a hidden tab); try again once it has a size
+    if (!updateMap.waiting) {
+      updateMap.waiting = true;
+      map.once('resize', () => { updateMap.waiting = false; updateMap(); });
     }
   }
-}
 
-// ── UTM Zone 10N → WGS84 via proj4js ──────────────────────────
-function utmToLatLng(x, y) {
-  const utm   = '+proj=utm +zone=10 +ellps=WGS84 +datum=WGS84 +units=m +no_defs';
-  const wgs84 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs';
-  try {
-    const [lng, lat] = proj4(utm, wgs84, [x, y]);
-    return [lat, lng];
-  } catch (_) {
-    return [0, 0];
+  // Zoom to the selection when a single neighbourhood is chosen
+  const hoodSelected = document.getElementById('neighbourhood-filter').value !== 'all';
+  if (hoodSelected && points.length) {
+    // Use the 2nd–98th percentile so a few stray points don't stretch the view
+    const pct = (arr, q) => arr[Math.min(arr.length - 1, Math.floor(arr.length * q))];
+    const lats = points.map(p => p[0]).sort((a, b) => a - b);
+    const lngs = points.map(p => p[1]).sort((a, b) => a - b);
+    map.fitBounds([[pct(lats, 0.02), pct(lngs, 0.02)], [pct(lats, 0.98), pct(lngs, 0.98)]],
+                  { padding: [30, 30], maxZoom: 15, animate: false });
+  } else if (!hoodSelected && updateMap.wasHood) {
+    map.setView(VANCOUVER_CENTER, 12, { animate: false });
   }
-}
+  updateMap.wasHood = hoodSelected;
 
-// ── Validate coordinates are within greater Vancouver ──────────
-function isValidVancouverCoords(lat, lng) {
-  return lat >= 49.15 && lat <= 49.35 && lng >= -123.3 && lng <= -122.95;
+  // Say how many incidents can't be mapped (VPD withholds locations for person offences)
+  const hidden = agg.total - agg.located;
+  document.getElementById('map-note').textContent = agg.total
+    ? `Showing ${agg.located.toLocaleString()} mapped incidents. ` +
+      (hidden ? `${hidden.toLocaleString()} (${Math.round(hidden / agg.total * 100)}%) have no published location, mostly offences against a person, which VPD withholds for privacy.` : '')
+    : 'No incidents match these filters.';
 }
