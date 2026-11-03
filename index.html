@@ -152,18 +152,18 @@
 
         <div class="sec-head"><h2>Incident Map — City of Vancouver</h2>
           <div class="map-mode" role="group" aria-label="Map style">
-            <button type="button" data-mode="dots" class="active">Dots</button>
-            <button type="button" data-mode="heat">Heat</button>
+            <button type="button" data-mode="dots">Dots</button>
+            <button type="button" data-mode="heat" class="active">Heat</button>
           </div>
         </div>
         <div id="crime-map"></div>
-        <div class="map-legend" id="legend-dots">
+        <div class="map-legend" id="legend-dots" hidden>
           <div class="ml-item"><div class="ml-dot" style="background:#c0392b"></div>Against Person</div>
           <div class="ml-item"><div class="ml-dot" style="background:#c07a2b"></div>Property Crime</div>
           <div class="ml-item"><div class="ml-dot" style="background:#5a5047"></div>Other</div>
           <div class="ml-item ml-size"><span class="ml-dot-s"></span><span class="ml-dot-l"></span>Bigger = more incidents</div>
         </div>
-        <div class="map-legend" id="legend-heat" hidden>
+        <div class="map-legend" id="legend-heat">
           <span class="ml-label">Fewer</span>
           <div class="ml-ramp" aria-hidden="true"></div>
           <span class="ml-label">More incidents</span>

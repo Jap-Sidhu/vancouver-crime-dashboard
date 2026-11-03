@@ -6,7 +6,7 @@
 
 const VANCOUVER_CENTER = [49.2600, -123.1150];
 const BASE_ZOOM = 12;
-let mapMode = 'dots';       // 'dots' | 'heat'
+let mapMode = 'heat';       // 'dots' | 'heat'
 let dotLayer = null;
 let heatLayer = null;
 let canvasRenderer = null;
