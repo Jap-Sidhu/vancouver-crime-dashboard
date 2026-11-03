@@ -130,9 +130,10 @@ function drawDots() {
     L.popup({ maxWidth: 240 })
       .setLatLng(e.latlng)
       .setContent(
-        `<strong>${cell.n.toLocaleString()} incident${cell.n === 1 ? '' : 's'} on this block</strong>` +
+        `<strong>${cell.n.toLocaleString()} incident${cell.n === 1 ? '' : 's'} recorded on this block</strong>` +
         top.map(d => `${d.type} · ${d.count.toLocaleString()}`).join('<br>') +
-        `<div class="popup-note">Locations are offset to the hundred block by VPD.</div>`)
+        `<div class="popup-note">VPD rounds locations to the hundred block for privacy, so this is the block, not the exact spot. ` +
+        `A busy store or mall can account for most of a block's thefts.</div>`)
       .openOn(map);
   });
 
@@ -209,14 +210,14 @@ function updateMap() {
 // (VPD withholds locations for offences against a person)
 function updateMapNote() {
   const hidden = agg.total - agg.located;
-  let shown = `Showing ${agg.located.toLocaleString()} mapped incidents. `;
+  let shown = `Showing ${agg.located.toLocaleString()} recorded incidents. `;
   if (mapMode === 'dots' && dotLayer) {
     shown = dotLayer.shown < agg.cells.size
-      ? `Showing the ${dotLayer.shown.toLocaleString()} busiest of ${agg.cells.size.toLocaleString()} locations; zoom in to see more. `
-      : `Showing all ${agg.cells.size.toLocaleString()} locations (${agg.located.toLocaleString()} incidents). Click a dot for details. `;
+      ? `Showing the ${dotLayer.shown.toLocaleString()} blocks with the most recorded incidents (of ${agg.cells.size.toLocaleString()}); zoom in to see more. `
+      : `Showing all ${agg.cells.size.toLocaleString()} blocks with recorded incidents (${agg.located.toLocaleString()} incidents). Click a dot for details. `;
   }
   document.getElementById('map-note').textContent = agg.total
-    ? shown + (hidden ? `${hidden.toLocaleString()} incidents (${Math.round(hidden / agg.total * 100)}%) have no published location, mostly offences against a person, which VPD withholds for privacy.` : '')
+    ? shown + `Locations are rounded to the hundred block by VPD, and ${mapMode === 'dots' ? 'large dots' : 'the hottest spots'} often mark a single busy store or mall. ` + (hidden ? `${hidden.toLocaleString()} incidents (${Math.round(hidden / agg.total * 100)}%) have no published location, mostly offences against a person, which VPD withholds for privacy.` : '')
     : 'No incidents match these filters.';
 }
 

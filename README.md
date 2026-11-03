@@ -6,7 +6,7 @@ An interactive dashboard of **965,133 Vancouver Police Department incidents (Jan
 
 ## Features
 
-- **Incident map** with one dot per location (~30 m), coloured by crime category and sized by count, on a street map with full names. Zoomed out it shows the busiest locations, and zooming in reveals all ~37,000. Click a dot for its top crime types, or switch to a **heat map** view.
+- **Incident map** (heat map by default, or dots) on a street map with full names. Dots show the blocks where VPD *recorded* the most incidents, coloured by crime category and sized by count. Zoomed out it shows the busiest blocks, and zooming in reveals all of them. Locations are rounded to the hundred block for privacy, so a dot is a block, not an exact spot. Large dots often mark one busy store or mall where many thefts are reported, such as 7XX Granville St (Pacific Centre). Click a dot for its top crime types.
 - **Filters** by year, neighbourhood, month range and crime type, recalculating every chart in well under 100 ms
 - **Charts:** incidents over time, by type, hour of day, day of week, and the top 10 neighbourhoods
 - **Forecast:** expected weekly incidents for the next 8 weeks for any neighbourhood and crime type, with an 80% likely range and the model's measured accuracy
@@ -51,7 +51,7 @@ Gradient boosting is the most accurate at every level. Its edge over the simple 
 - **2022 is a separate download.** VPD's "All years" export skips 2022, so download the 2022 file as well and merge it, as described below.
 - **Unknown times.** About 12% of incidents are logged at exactly 00:00, VPD's placeholder for unknown or withheld times. They're excluded from the peak-hour stat and the hourly chart, and the share is shown.
 - **No location.** About 9% of incidents have no coordinates, mostly offences against a person, which VPD withholds for privacy. They're counted everywhere except the map, and the map says how many are missing.
-- **Offset locations.** Published locations are offset to the hundred block and shouldn't be used to identify specific properties or people. See `data/legal_disclaimer.txt`.
+- **Hundred-block locations.** VPD moves each incident to a single point for its hundred block, and some are listed only as "OFFSET TO PROTECT PRIVACY". The map therefore shows where incidents were *recorded* at block level, not exact locations or where crime is most dangerous. Don't use it to identify specific properties or people; see `data/legal_disclaimer.txt`.
 
 ## Refreshing the data
 
