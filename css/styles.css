@@ -468,8 +468,9 @@ label.ct-item input[type="checkbox"] {
   font-size: 1.05em;
 }
 
-.leaflet-tile-pane {
-  filter: sepia(0.3) saturate(0.75) brightness(1.05);
+/* Mute the colourful street map so the crime dots stand out but names stay readable */
+.leaflet-tile-pane .basemap {
+  filter: grayscale(0.85) sepia(0.25) contrast(0.92) brightness(1.06);
 }
 
 /* ================================================================
@@ -849,3 +850,29 @@ footer {
 @media (max-width: 600px) {
   .fc-controls .fs-group, .fc-controls select { width: 100%; }
 }
+
+/* Map style switch, dot legend and popup */
+.map-mode { display: inline-flex; border: 1px solid var(--rule-strong); }
+.map-mode button {
+  font-family: var(--mono);
+  font-size: 0.55em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.map-mode button + button { border-left: 1px solid var(--rule-strong); }
+.map-mode button.active { background: var(--ink); color: var(--paper, #f5f0e8); }
+.map-mode button:focus-visible { outline: 2px solid var(--red); outline-offset: 1px; }
+
+.ml-size { gap: 4px; }
+.ml-dot-s, .ml-dot-l { display: inline-block; border-radius: 50%; background: var(--ink-muted); opacity: 0.6; }
+.ml-dot-s { width: 4px; height: 4px; }
+.ml-dot-l { width: 9px; height: 9px; margin-right: 4px; }
+
+.leaflet-popup-content strong { display: block; margin-bottom: 4px; }
+.popup-note { margin-top: 6px; font-size: 0.85em; color: var(--ink-muted); }
+.map-legend[hidden] { display: none; }
