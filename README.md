@@ -6,7 +6,7 @@ An interactive dashboard of **965,133 Vancouver Police Department incidents (Jan
 
 ## Features
 
-- **Heat map** of incident density at roughly 30 m resolution, scaled logarithmically so quieter neighbourhoods stay visible next to downtown
+- **Incident map** with one dot per location (~30 m), coloured by crime category and sized by count, on a street map with full names. Zoomed out it shows the busiest locations, and zooming in reveals all ~37,000. Click a dot for its top crime types, or switch to a **heat map** view.
 - **Filters** by year, neighbourhood, month range and crime type, recalculating every chart in well under 100 ms
 - **Charts:** incidents over time, by type, hour of day, day of week, and the top 10 neighbourhoods
 - **Forecast:** expected weekly incidents for the next 8 weeks for any neighbourhood and crime type, with an 80% likely range and the model's measured accuracy

@@ -13,7 +13,7 @@ let map;
 
 const UNKNOWN = 255;      // hour / neighbourhood not recorded
 const NO_LOC  = 65535;    // incident has no published location
-const HEAT_SHIFT = 3;     // heat-map cell = 8 grid steps ≈ 30 m
+const CELL_SHIFT = 3;     // map cell = 8 grid steps ≈ 30 m
 
 // Crime type category mappings (from original)
 const CRIME_CATEGORIES = {
@@ -177,6 +177,7 @@ function applyFilters() {
   document.querySelectorAll('#crime-type-filter input:checked').forEach(cb => { typeOk[+cb.value] = 1; });
 
   const nYears = meta.years[meta.years.length - 1] - meta.yearBase + 1;
+  const nTypes = meta.types.length;
   const a = {
     total: 0, knownHour: 0, located: 0,
     byType: new Uint32Array(meta.types.length),
@@ -184,7 +185,7 @@ function applyFilters() {
     byMonth: new Uint32Array(nYears * 12),   // index = yearIdx * 12 + (month - 1)
     byHour: new Uint32Array(24),
     byDow:  new Uint32Array(7),
-    heat:   new Map(),                        // heat-map cell → count
+    cells:  new Map(),                        // map cell → { n, byType }
     monthOk
   };
 
@@ -202,8 +203,11 @@ function applyFilters() {
     if (hour[i] !== UNKNOWN) { a.byHour[hour[i]]++; a.knownHour++; }
     if (lat[i] !== NO_LOC) {
       a.located++;
-      const key = ((lat[i] >> HEAT_SHIFT) << 12) | (lng[i] >> HEAT_SHIFT);
-      a.heat.set(key, (a.heat.get(key) || 0) + 1);
+      const key = ((lat[i] >> CELL_SHIFT) << 12) | (lng[i] >> CELL_SHIFT);
+      let cell = a.cells.get(key);
+      if (!cell) { cell = { n: 0, byType: new Uint32Array(nTypes) }; a.cells.set(key, cell); }
+      cell.n++;
+      cell.byType[type[i]]++;
     }
   }
 
