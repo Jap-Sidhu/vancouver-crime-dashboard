@@ -27,7 +27,8 @@ function initializeMap() {
   }).addTo(map);
 
   // Tens of thousands of dots draw much faster on one canvas than as separate elements
-  canvasRenderer = L.canvas({ padding: 0.3 });
+  // `tolerance` widens the clickable area around each dot, so even 1–2 px dots are easy to click
+  canvasRenderer = L.canvas({ padding: 0.3, tolerance: 6 });
 
   // Zooming changes how many locations fit, so the dots are rebuilt for the new zoom
   map.on('zoomend', () => { if (mapMode === 'dots' && agg) { drawDots(); updateMapNote(); } });
