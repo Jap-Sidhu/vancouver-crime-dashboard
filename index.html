@@ -184,6 +184,46 @@
     </div><!-- /body-grid -->
 
     <!-- ══════════════════════════════════════
+         FORECAST
+    ══════════════════════════════════════ -->
+    <section class="forecast" id="forecast-section" aria-labelledby="forecast-title">
+      <div class="sec-head"><h2 id="forecast-title">The Next Eight Weeks — Forecast</h2><span class="sec-note">machine-learning model · updated with the data</span></div>
+
+      <div class="fc-grid">
+        <div class="fc-main">
+          <div class="fc-controls">
+            <div class="fs-group">
+              <label for="fc-hood">Neighbourhood</label>
+              <select id="fc-hood"></select>
+            </div>
+            <div class="fs-group">
+              <label for="fc-type">Crime type</label>
+              <select id="fc-type"></select>
+            </div>
+          </div>
+          <p class="fc-summary" id="forecast-summary"></p>
+          <div id="forecast-chart" class="chart-container"></div>
+          <div class="fc-legend">
+            <span><i class="fc-key actual"></i>Recorded</span>
+            <span><i class="fc-key predicted"></i>Forecast</span>
+            <span><i class="fc-key band"></i>80% likely range</span>
+          </div>
+          <p class="fc-quality" id="forecast-quality"></p>
+        </div>
+
+        <aside class="fc-side">
+          <h3>How it works</h3>
+          <p>A gradient-boosting model learns weekly counts for every neighbourhood and crime type from 2003 onward: recent weeks, the same season last year, and long-run trends. Totals add up the neighbourhood forecasts. It predicts <em>how many</em> incidents a week, never where or when a specific one will happen.</p>
+          <h3>How accurate it is</h3>
+          <p>Trained on data up to 2024, then tested on <span id="forecast-test-range">2025–2026</span>, which it never saw. Lower is better; the best per row is marked.</p>
+          <div id="forecast-accuracy" class="fc-accuracy"></div>
+          <h3>Limits</h3>
+          <p>It only knows recorded crime, which depends on reporting and policing as well as crime itself. The latest weeks are left out until late reports arrive. City-wide ranges are cautious: 95% of test weeks fell inside them.</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════
          FOOTER
     ══════════════════════════════════════ -->
     <footer>
@@ -201,5 +241,6 @@
   <script src="js/main.js"></script>
   <script src="js/map.js"></script>
   <script src="js/charts.js"></script>
+  <script src="js/forecast.js"></script>
 </body>
 </html>

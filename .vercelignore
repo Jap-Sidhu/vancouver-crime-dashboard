@@ -1,0 +1,5 @@
+# Raw source data and build tooling are not needed by the deployed site
+data/*.csv
+data/*.pdf
+scripts/
+.venv/
