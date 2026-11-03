@@ -4,9 +4,16 @@
 // ================================================================
 
 // Global state
-let crimeData    = [];
-let filteredData = [];
+// The dataset is held as typed-array columns (see scripts/build_data.py), and every
+// filter change produces one `agg` object with all the counts the page needs.
+let meta = null;      // data/meta.json
+let cols = null;      // { type, year, month, dow, hour, hood, lat, lng }
+let agg  = null;      // counts for the current filters
 let map;
+
+const UNKNOWN = 255;      // hour / neighbourhood not recorded
+const NO_LOC  = 65535;    // incident has no published location
+const HEAT_SHIFT = 3;     // heat-map cell = 8 grid steps ≈ 30 m
 
 // Crime type category mappings (from original)
 const CRIME_CATEGORIES = {
@@ -39,40 +46,42 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (crimeData.length > 0) updateDashboard();
+      if (agg) updateDashboard();
       if (map) map.invalidateSize();
     }, 200);
   });
 });
 
-// ── Load CSV data ──────────────────────────────────────────────
+// ── Load the pre-built data ────────────────────────────────────
 async function loadData() {
   try {
-    const data = await d3.csv('data/Crimedata_csv_all_years.csv');
+    const t0 = performance.now();
+    const [metaRes, binRes] = await Promise.all([
+      fetch('data/meta.json'),
+      fetch('data/incidents.bin.gz')
+    ]);
+    if (!metaRes.ok || !binRes.ok) throw new Error('data files missing');
+    meta = await metaRes.json();
 
-    crimeData = data.map(d => ({
-      type:          d.TYPE          || d.type          || '',
-      year:          +(d.YEAR        || d.year          || 0),
-      month:         +(d.MONTH       || d.month         || 0),
-      day:           +(d.DAY         || d.day           || 0),
-      hour:          (d.HOUR  !== '' && d.HOUR  != null) ? +(d.HOUR  || d.hour)  : null,
-      minute:        (d.MINUTE!== '' && d.MINUTE!= null) ? +(d.MINUTE|| d.minute): null,
-      hundredBlock:  d.HUNDRED_BLOCK || d.hundred_block || '',
-      neighbourhood: d.NEIGHBOURHOOD || d.neighbourhood || '',
-      x:             (d.X !== '' && d.X != null) ? +(d.X || d.x) : null,
-      y:             (d.Y !== '' && d.Y != null) ? +(d.Y || d.y) : null,
-      dayOfWeek:     new Date(+(d.YEAR||d.year), +(d.MONTH||d.month)-1, +(d.DAY||d.day)).getDay()
-    })).filter(d => d.type && d.year > 2000);
+    // The file is gzip-compressed on disk. Some hosts already decompress it in transit
+    // (Content-Encoding: gzip), so only decompress when the gzip header is still there.
+    let buf = await binRes.arrayBuffer();
+    const head = new Uint8Array(buf, 0, 2);
+    if (head[0] === 0x1f && head[1] === 0x8b) {
+      const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+      buf = await new Response(stream).arrayBuffer();
+    }
+    if (buf.byteLength !== meta.n * 10) throw new Error('data file does not match meta.json');
+    cols = unpackColumns(buf, meta.n);
 
-    console.log(`Loaded ${crimeData.length} crime incidents`);
+    console.log(`Loaded ${meta.n.toLocaleString()} incidents in ${Math.round(performance.now() - t0)} ms`);
 
-    // Update masthead record count
-    document.getElementById('meta-count').textContent = crimeData.length.toLocaleString();
+    document.getElementById('meta-count').textContent = meta.n.toLocaleString();
+    document.getElementById('meta-range').textContent =
+      `${meta.years[0]}–${formatMonth(meta.latestMonth)}`;
 
     populateFilters();
-
-    filteredData = [...crimeData];
-    updateDashboard();
+    applyFilters();
 
     // Hide loading overlay
     const loading = document.getElementById('loading');
@@ -83,44 +92,54 @@ async function loadData() {
     console.error('Error loading data:', error);
     const loading = document.getElementById('loading');
     loading.querySelector('p').textContent =
-      'Error loading data. Ensure Crimedata_csv_all_years.csv is in the data/ folder.';
+      'Could not load the crime data. Run scripts/build_data.py to create data/incidents.bin.gz.';
     loading.querySelector('p').style.color = 'var(--red)';
     loading.querySelector('.spinner').style.display = 'none';
   }
 }
 
+// Column layout matches scripts/build_data.py
+function unpackColumns(buf, n) {
+  const u8 = i => new Uint8Array(buf, i * n, n);
+  return {
+    type:  u8(0), year: u8(1), month: u8(2), dow: u8(3), hour: u8(4), hood: u8(5),
+    lat:   new Uint16Array(buf, 6 * n, n),
+    lng:   new Uint16Array(buf, 8 * n, n)
+  };
+}
+
+function formatMonth(ym) {
+  const [y, m] = ym.split('-');
+  return new Date(+y, +m - 1, 1).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' });
+}
+
 // ── Populate filter dropdowns ──────────────────────────────────
 function populateFilters() {
   // Years (newest first)
-  const years = [...new Set(crimeData.map(d => d.year))].sort((a, b) => b - a);
   const yearSel = document.getElementById('year-filter');
-  years.forEach(y => {
+  [...meta.years].reverse().forEach(y => {
     const o = document.createElement('option');
     o.value = y; o.textContent = y;
     yearSel.appendChild(o);
   });
 
   // Neighbourhoods
-  const hoods = [...new Set(crimeData.map(d => d.neighbourhood))]
-    .filter(n => n && n.trim() !== '')
-    .sort();
   const hoodSel = document.getElementById('neighbourhood-filter');
-  hoods.forEach(n => {
+  meta.neighbourhoods.forEach((n, i) => {
     const o = document.createElement('option');
-    o.value = n; o.textContent = n;
+    o.value = i; o.textContent = n;
     hoodSel.appendChild(o);
   });
 
   // Crime type checkboxes — styled to match editorial design
-  const types = [...new Set(crimeData.map(d => d.type))].filter(Boolean).sort();
   const container = document.getElementById('crime-type-filter');
-  types.forEach(type => {
+  meta.types.forEach((type, i) => {
     const lbl = document.createElement('label');
     lbl.className = 'ct-item';
 
     const cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.value = type;
+    cb.value = i;
     cb.checked = true;
 
     lbl.appendChild(cb);
@@ -139,32 +158,56 @@ function setupEventListeners() {
   document.getElementById('reset-filters').addEventListener('click', resetFilters);
 }
 
-// ── Apply filters ──────────────────────────────────────────────
+// ── Apply filters: one pass over all incidents ──────────────────
 function applyFilters() {
-  const yearVal  = document.getElementById('year-filter').value;
-  const hoodVal  = document.getElementById('neighbourhood-filter').value;
-  const mFrom    = +document.getElementById('month-start').value;
-  const mTo      = +document.getElementById('month-end').value;
+  const yearVal = document.getElementById('year-filter').value;
+  const hoodVal = document.getElementById('neighbourhood-filter').value;
+  const mFrom   = +document.getElementById('month-start').value;
+  const mTo     = +document.getElementById('month-end').value;
 
-  const selectedTypes = new Set(
-    Array.from(document.querySelectorAll('#crime-type-filter input:checked'))
-      .map(cb => cb.value)
-  );
+  const yearIdx = yearVal === 'all' ? -1 : +yearVal - meta.yearBase;
+  const hoodIdx = hoodVal === 'all' ? -1 : +hoodVal;
 
-  filteredData = crimeData.filter(d => {
-    if (yearVal !== 'all' && d.year !== +yearVal)       return false;
-    if (hoodVal !== 'all' && d.neighbourhood !== hoodVal) return false;
-    if (mFrom <= mTo) {
-      if (d.month < mFrom || d.month > mTo)             return false;
-    } else {
-      // wrap-around range (e.g. Oct → Feb)
-      if (d.month < mFrom && d.month > mTo)             return false;
+  // Month mask handles wrap-around ranges (e.g. Oct → Feb)
+  const monthOk = new Uint8Array(13);
+  for (let m = 1; m <= 12; m++) {
+    monthOk[m] = mFrom <= mTo ? (m >= mFrom && m <= mTo) : (m >= mFrom || m <= mTo);
+  }
+  const typeOk = new Uint8Array(meta.types.length);
+  document.querySelectorAll('#crime-type-filter input:checked').forEach(cb => { typeOk[+cb.value] = 1; });
+
+  const nYears = meta.years[meta.years.length - 1] - meta.yearBase + 1;
+  const a = {
+    total: 0, knownHour: 0, located: 0,
+    byType: new Uint32Array(meta.types.length),
+    byHood: new Uint32Array(meta.neighbourhoods.length),
+    byMonth: new Uint32Array(nYears * 12),   // index = yearIdx * 12 + (month - 1)
+    byHour: new Uint32Array(24),
+    byDow:  new Uint32Array(7),
+    heat:   new Map(),                        // heat-map cell → count
+    monthOk
+  };
+
+  const { type, year, month, dow, hour, hood, lat, lng } = cols;
+  for (let i = 0, n = meta.n; i < n; i++) {
+    if (yearIdx >= 0 && year[i] !== yearIdx) continue;
+    if (hoodIdx >= 0 && hood[i] !== hoodIdx) continue;
+    if (!monthOk[month[i]] || !typeOk[type[i]]) continue;
+
+    a.total++;
+    a.byType[type[i]]++;
+    if (hood[i] !== UNKNOWN) a.byHood[hood[i]]++;
+    a.byMonth[year[i] * 12 + month[i] - 1]++;
+    a.byDow[dow[i]]++;
+    if (hour[i] !== UNKNOWN) { a.byHour[hour[i]]++; a.knownHour++; }
+    if (lat[i] !== NO_LOC) {
+      a.located++;
+      const key = ((lat[i] >> HEAT_SHIFT) << 12) | (lng[i] >> HEAT_SHIFT);
+      a.heat.set(key, (a.heat.get(key) || 0) + 1);
     }
-    if (!selectedTypes.has(d.type))                     return false;
-    return true;
-  });
+  }
 
-  console.log(`Filtered to ${filteredData.length} incidents`);
+  agg = a;
   updateDashboard();
 }
 
@@ -186,17 +229,20 @@ function updateDashboard() {
 }
 
 // ── Update key statistics ──────────────────────────────────────
+function topIndex(counts) {
+  let best = -1, max = 0;
+  counts.forEach((c, i) => { if (c > max) { max = c; best = i; } });
+  return best;
+}
+
 function updateStatistics() {
-  // Total
-  document.getElementById('total-incidents').textContent =
-    filteredData.length.toLocaleString();
+  document.getElementById('total-incidents').textContent = agg.total.toLocaleString();
 
   // Most common crime
-  const typeCounts = d3.rollup(filteredData, v => v.length, d => d.type);
-  const topType = [...typeCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const t = topIndex(agg.byType);
   const crimeEl = document.getElementById('most-common-crime');
-  if (topType) {
-    let lbl = topType[0]
+  if (t >= 0) {
+    let lbl = meta.types[t]
       .replace('Break and Enter ', 'B&E ')
       .replace('Vehicle Collision or Pedestrian Struck (with Fatality)', 'Collision (Fatal)')
       .replace('Vehicle Collision or Pedestrian Struck (with Injury)', 'Collision (Injury)');
@@ -206,30 +252,23 @@ function updateStatistics() {
     crimeEl.textContent = '—';
   }
 
-  // Peak hour
-  const hourData = filteredData.filter(d => d.hour !== null);
-  if (hourData.length > 0) {
-    const hourCounts = d3.rollup(hourData, v => v.length, d => d.hour);
-    const peakHour = [...hourCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-    document.getElementById('peak-hour').textContent =
-      peakHour ? `${String(peakHour[0]).padStart(2, '0')}:00` : '—';
-  } else {
-    document.getElementById('peak-hour').textContent = 'N/A';
-  }
+  // Peak hour, from incidents with a recorded time only
+  const h = topIndex(agg.byHour);
+  document.getElementById('peak-hour').textContent = h >= 0 ? `${String(h).padStart(2, '0')}:00` : 'N/A';
+  const unknown = agg.total - agg.knownHour;
+  document.getElementById('peak-hour-note').textContent = agg.total
+    ? `${Math.round((unknown / agg.total) * 100)}% have no recorded time`
+    : '';
 
   // Top neighbourhood
-  const nbrData = filteredData.filter(d => d.neighbourhood && d.neighbourhood.trim() !== '');
-  if (nbrData.length > 0) {
-    const nbrCounts = d3.rollup(nbrData, v => v.length, d => d.neighbourhood);
-    const topNbr = [...nbrCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-    const nbrEl = document.getElementById('hotspot-neighbourhood');
-    if (topNbr) {
-      let lbl = topNbr[0];
-      if (lbl.length > 18) lbl = lbl.slice(0, 16) + '…';
-      nbrEl.textContent = lbl;
-    }
+  const nb = topIndex(agg.byHood);
+  const nbrEl = document.getElementById('hotspot-neighbourhood');
+  if (nb >= 0) {
+    let lbl = meta.neighbourhoods[nb];
+    if (lbl.length > 18) lbl = lbl.slice(0, 16) + '…';
+    nbrEl.textContent = lbl;
   } else {
-    document.getElementById('hotspot-neighbourhood').textContent = 'N/A';
+    nbrEl.textContent = 'N/A';
   }
 }
 

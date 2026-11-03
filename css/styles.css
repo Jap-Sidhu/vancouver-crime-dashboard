@@ -709,3 +709,54 @@ footer {
     align-items: flex-start;
   }
 }
+/* ================================================================
+   DATA NOTES — heat-map legend, unknown-time and location notes
+================================================================ */
+.stat-note {
+  font-family: var(--mono);
+  font-size: 0.55em;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  margin-top: 6px;
+}
+
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sec-note {
+  font-family: var(--mono);
+  font-size: 0.52em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.map-legend { align-items: center; gap: 10px; }
+
+.ml-label {
+  font-family: var(--mono);
+  font-size: 0.57em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.ml-ramp {
+  width: 140px;
+  height: 8px;
+  background: linear-gradient(90deg, #e5c9a0, #d9963f, #c0392b, #5c1610);
+  border: 1px solid var(--rule);
+}
+
+.map-note {
+  font-family: var(--mono);
+  font-size: 0.6em;
+  line-height: 1.5;
+  color: var(--ink-muted);
+  margin: 4px 0 0;
+}

@@ -14,10 +14,10 @@
   <!-- Dashboard styles -->
   <link rel="stylesheet" href="css/styles.css">
 
-  <!-- D3, Leaflet, Proj4 -->
+  <!-- D3, Leaflet, Leaflet.heat -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 </head>
 <body>
 
@@ -38,7 +38,7 @@
     <header class="masthead">
       <div class="mast-meta">
         <span>Vancouver, British Columbia</span>
-        <span>VPD Open Data · <b>2003–2026</b></span>
+        <span>VPD Open Data · <b id="meta-range">2003–2026</b></span>
         <span>Records loaded: <b id="meta-count">—</b></span>
       </div>
       <div class="mast-title">The Vancouver Crime Record</div>
@@ -123,6 +123,7 @@
       <div class="stat-cell">
         <div class="stat-eyebrow">Peak Hour</div>
         <div class="stat-num" id="peak-hour">—</div>
+        <div class="stat-note" id="peak-hour-note"></div>
       </div>
       <div class="stat-cell">
         <div class="stat-eyebrow">Top Neighbourhood</div>
@@ -152,10 +153,11 @@
         <div class="sec-head"><h2>Incident Map — Vancouver Metropolitan Area</h2></div>
         <div id="crime-map"></div>
         <div class="map-legend">
-          <div class="ml-item"><div class="ml-dot" style="background:#c0392b"></div>Against Person</div>
-          <div class="ml-item"><div class="ml-dot" style="background:#c07a2b"></div>Property Crime</div>
-          <div class="ml-item"><div class="ml-dot" style="background:#5a5047"></div>Other</div>
+          <span class="ml-label">Fewer</span>
+          <div class="ml-ramp" aria-hidden="true"></div>
+          <span class="ml-label">More incidents</span>
         </div>
+        <p class="map-note" id="map-note"></p>
 
         <div class="two-charts">
           <div>
@@ -163,7 +165,7 @@
             <div id="time-series-chart" class="chart-container"></div>
           </div>
           <div>
-            <div class="sec-head"><h2>Hourly Distribution</h2></div>
+            <div class="sec-head"><h2>Hourly Distribution</h2><span class="sec-note">recorded times only</span></div>
             <div id="hourly-chart" class="chart-container"></div>
           </div>
         </div>

@@ -40,8 +40,8 @@ function createCrimeTypeChart() {
   const container = document.getElementById('crime-type-chart');
   container.innerHTML = '';
 
-  const typeCounts = d3.rollup(filteredData, v => v.length, d => d.type);
-  const data = Array.from(typeCounts, ([type, count]) => ({ type, count }))
+  const data = Array.from(agg.byType, (count, i) => ({ type: meta.types[i], count }))
+    .filter(d => d.count > 0)
     .sort((a, b) => b.count - a.count);
 
   if (!data.length) {
@@ -121,16 +121,15 @@ function createNeighbourhoodChart() {
   const container = document.getElementById('neighbourhood-chart');
   container.innerHTML = '';
 
-  const nbrData = filteredData.filter(d => d.neighbourhood && d.neighbourhood.trim() !== '');
-  if (!nbrData.length) {
+  const rows = Array.from(agg.byHood, (count, i) => ({ neighbourhood: meta.neighbourhoods[i], count }))
+    .filter(d => d.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+  if (!rows.length) {
     container.innerHTML = '<p style="font-family:JetBrains Mono,monospace;font-size:0.72em;color:#9a8e84;padding:12px 0;">No neighbourhood data available</p>';
     return;
   }
 
-  const counts = d3.rollup(nbrData, v => v.length, d => d.neighbourhood);
-  const rows = Array.from(counts, ([neighbourhood, count]) => ({ neighbourhood, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
 
   const max = rows[0].count;
   // Cycle 3 colours across ranks
@@ -163,17 +162,17 @@ function createTimeSeriesChart() {
   const container = document.getElementById('time-series-chart');
   container.innerHTML = '';
 
-  if (!filteredData.length) return;
+  if (!agg.total) return;
 
-  const timeCounts = d3.rollup(
-    filteredData, v => v.length,
-    d => `${d.year}-${String(d.month).padStart(2, '0')}`
-  );
-
-  const data = Array.from(timeCounts, ([key, count]) => {
-    const [y, m] = key.split('-');
-    return { date: new Date(+y, +m - 1, 1), count };
-  }).sort((a, b) => a.date - b.date);
+  // Every month between the first and last with data, inside the selected month range.
+  // Empty months show as zero rather than being bridged by the line.
+  const first = agg.byMonth.findIndex(c => c > 0);
+  const last  = agg.byMonth.findLastIndex(c => c > 0);
+  const data = [];
+  for (let i = first; i >= 0 && i <= last; i++) {
+    if (!agg.monthOk[(i % 12) + 1]) continue;
+    data.push({ date: new Date(meta.yearBase + Math.floor(i / 12), i % 12, 1), count: agg.byMonth[i] });
+  }
 
   if (!data.length) return;
 
@@ -227,11 +226,10 @@ function createHourlyChart() {
   const container = document.getElementById('hourly-chart');
   container.innerHTML = '';
 
-  const hourData = filteredData.filter(d => d.hour !== null);
-  if (!hourData.length) return;
+  if (!agg.knownHour) return;
 
-  const counts = d3.rollup(hourData, v => v.length, d => d.hour);
-  const data   = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: counts.get(i) || 0 }));
+  // Incidents logged at exactly 00:00 are VPD's "time unknown" and are left out
+  const data = Array.from(agg.byHour, (count, hour) => ({ hour, count }));
 
   const margin = { top: 8, right: 6, bottom: 20, left: 30 };
   const W  = container.clientWidth || 260;
@@ -276,14 +274,10 @@ function createWeekdayChart() {
   const container = document.getElementById('weekday-chart');
   container.innerHTML = '';
 
-  if (!filteredData.length) return;
+  if (!agg.total) return;
 
   const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const counts = d3.rollup(filteredData, v => v.length, d => d.dayOfWeek);
-  const data   = Array.from({ length: 7 }, (_, i) => ({
-    day: DAY_LABELS[i],
-    count: counts.get(i) || 0
-  }));
+  const data = Array.from(agg.byDow, (count, i) => ({ day: DAY_LABELS[i], count }));
 
   const margin = { top: 6, right: 6, bottom: 18, left: 30 };
   const W  = container.clientWidth || 500;
